@@ -1,9 +1,11 @@
 // Include the basic windows header file and the Direct3D header files
 #include <Windows.h>
 #include <d3d11.h>
+#include <d3dcompiler.h>
 
 // Include the Direct3D Library file
 #pragma comment (lib, "d3d11.lib")
+#pragma comment (lib, "D3DCompiler.lib")
 
 // Define screen resolution
 #define SCREEN_WIDTH  800
@@ -13,12 +15,21 @@
 IDXGISwapChain *swapchain;			// the pointer to the swap chain interface
 ID3D11Device *device;				// the pointer to our Direct3D device interface
 ID3D11DeviceContext *deviceContext;	// the pointer to our Direct3D device context
-ID3D11RenderTargetView *backbuffer; // the pointer to an object that holds all the information about the render target
+ID3D11RenderTargetView *backbuffer; // the pointer to our back buffer
+ID3D11InputLayout *pLayout;			// the pointer to the input layout
+ID3D11VertexShader *pVS;			// the pointer to the vertex shader
+ID3D11PixelShader *pPS;				// the pointer to the pixel shader
+ID3D11Buffer *pVBuffer;				// the pointer to the vertex buffer
+
+// A struct to define a vertex
+struct VERTEX { FLOAT X, Y, Z; FLOAT R, G, B, A; };
 
 // Function prototypes
 void InitD3D( HWND hWnd );	// sets up and initializes Direct3D
-void RenderFrame( void );	// Renders a single frame
+void RenderFrame( void );	// renders a single frame
 void CleanD3D( void );		// closes Direct3D and releases memory
+void InitGraphics( void );	// creates the shape to render
+void InitPipeline( void );	// loads and prepares the shaders
 
 // The WindowProc function prototype
 LRESULT CALLBACK WindowProc( HWND hWnd,
@@ -186,6 +197,9 @@ void InitD3D( HWND hWnd )
 	viewport.Height = SCREEN_HEIGHT;
 
 	deviceContext->RSSetViewports( 1, &viewport );
+
+	InitPipeline();
+	InitGraphics();
 }
 
 
@@ -198,7 +212,16 @@ void RenderFrame( void )
 	// Clear the back buffer to blue
 	deviceContext->ClearRenderTargetView( backbuffer, color);
 
-	// Do 3D rendering on the back buffer here
+	// Select which vertex buffer to display
+	UINT stride = sizeof( VERTEX );
+	UINT offset = 0;
+	deviceContext->IASetVertexBuffers( 0, 1, &pVBuffer, &stride, &offset );
+
+	// Select which primitive type we are using
+	deviceContext->IASetPrimitiveTopology( D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST );
+
+	// Draw the vertex buffer to the back buffer
+	deviceContext->Draw( 3, 0 );
 
 	// Switch the back buffer and the front buffer
 	swapchain->Present( 0, 0 );
@@ -210,8 +233,67 @@ void CleanD3D()
 	swapchain->SetFullscreenState( FALSE, NULL );	// switch to windowed mode
 
 	// Close and release all existing COM objects
+	pLayout->Release();
+	pVS->Release();
+	pPS->Release();
+	pVBuffer->Release();
 	swapchain->Release();
 	backbuffer->Release();
 	device->Release();
 	deviceContext->Release();
+}
+
+// This is the function that creates the shape to render
+void InitGraphics()
+{
+	// Create a triangle using the VERTEX struct
+	VERTEX OurVertices[] =
+	{
+		{0.0f, 0.5f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f },
+		{0.45f, -0.5, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f},
+		{-0.45f, -0.5f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f}
+	};
+
+	// Create the vertex buffer
+	D3D11_BUFFER_DESC bd;
+	ZeroMemory( &bd, sizeof( bd ) );
+
+	bd.Usage = D3D11_USAGE_DYNAMIC;					// write access by CPU and GPU
+	bd.ByteWidth = sizeof( VERTEX ) * 3;			// size is the VERTEX struct * 3
+	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;		// use as a vertex buffer
+	bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;		// allow CPU to write in buffer
+
+	device->CreateBuffer( &bd, NULL, &pVBuffer );	// create the buffer
+
+	// Copy the vertices into the buffer
+	D3D11_MAPPED_SUBRESOURCE ms;
+	deviceContext->Map( pVBuffer, NULL, D3D11_MAP_WRITE_DISCARD, NULL, &ms );	// map the buffer
+	memcpy( ms.pData, OurVertices, sizeof( OurVertices ) );						// copy the data
+	deviceContext->Unmap( pVBuffer, NULL );										// unmap the buffer
+}
+
+void InitPipeline()
+{
+	// Load two shaders
+	ID3DBlob *VS, *PS;
+	D3DReadFileToBlob( L"VSShader.cso", &VS );
+	D3DReadFileToBlob( L"PSShader.cso", &PS );
+
+	// Encapsulate both shaders into shader objects
+	device->CreateVertexShader( VS->GetBufferPointer(), VS->GetBufferSize(), NULL, &pVS );
+	device->CreatePixelShader( PS->GetBufferPointer(), PS->GetBufferSize(), NULL, &pPS );
+
+	// Set the shader objects
+	deviceContext->VSSetShader( pVS, 0, 0 );
+	deviceContext->PSSetShader( pPS, 0, 0 );
+
+	// Create the input layout object
+	D3D11_INPUT_ELEMENT_DESC ied[] =
+	{
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D11_INPUT_PER_VERTEX_DATA, 0 },
+	};
+
+	device->CreateInputLayout( ied, 2, VS->GetBufferPointer(), VS->GetBufferSize(), &pLayout );
+	deviceContext->IASetInputLayout( pLayout );
 }
