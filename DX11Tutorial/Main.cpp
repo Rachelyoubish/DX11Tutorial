@@ -5,6 +5,10 @@
 // Include the Direct3D Library file
 #pragma comment (lib, "d3d11.lib")
 
+// Define screen resolution
+#define SCREEN_WIDTH  800
+#define SCREEN_HEIGHT 600
+
 // Global declarations
 IDXGISwapChain *swapchain;			// the pointer to the swap chain interface
 ID3D11Device *device;				// the pointer to our Direct3D device interface
@@ -42,14 +46,14 @@ int WINAPI WinMain( HINSTANCE hInstance,
 	wc.lpfnWndProc = WindowProc;
 	wc.hInstance = hInstance;
 	wc.hCursor = LoadCursor( NULL, IDC_ARROW );
-	wc.hbrBackground = (HBRUSH)COLOR_WINDOW;
+	// wc.hbrBackground = (HBRUSH)COLOR_WINDOW;		// no longer needed
 	wc.lpszClassName = L"WindowClass1";
 
 	// Register the window class
 	RegisterClassEx( &wc );
 
 	// Calculate the size of the client area
-	RECT wr = { 0, 0, 500, 400 }; // Set the size but not the position
+	RECT wr = { 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT }; // Set the size but not the position
 	AdjustWindowRect( &wr, WS_OVERLAPPEDWINDOW, FALSE ); // Adjust the size
 
 	// Create the Window and use the result as the handle
@@ -59,8 +63,8 @@ int WINAPI WinMain( HINSTANCE hInstance,
 		WS_OVERLAPPEDWINDOW,			// Window style
 		300,							// x-position of the window
 		300,							// y-position of the window
-		wr.right - wr.left,							// width of the window
-		wr.bottom - wr.top,							// height of the window
+		wr.right - wr.left,
+		wr.bottom - wr.top,					// height of the window
 		NULL,							// We have no parent window, NULL
 		NULL,							// We aren't using menus, NULL
 		hInstance,						// Application handle	
@@ -111,7 +115,7 @@ LRESULT CALLBACK WindowProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
 	// Sort through and find what code to run for the message given
 	switch (message)
 	{
-	// This message is read when the window is closed
+		// This message is read when the window is closed
 		case WM_DESTROY:
 		{
 			// Close the application entirely
@@ -137,10 +141,13 @@ void InitD3D( HWND hWnd )
 	// Fill the swap chain description struct
 	scd.BufferCount = 1;									// one back buffer
 	scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;		// use 32-bit color
+	scd.BufferDesc.Width = SCREEN_WIDTH;					// set the back buffer width
+	scd.BufferDesc.Height = SCREEN_HEIGHT;					// set the back buffer height
 	scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;		// how swap chain is to be used
 	scd.OutputWindow = hWnd;								// the window to be used
 	scd.SampleDesc.Count = 4;								// how many multisamples
 	scd.Windowed = TRUE;									// windowed/full-screen mode
+	scd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;		// allow full-screen switching
 
 	// Create a device, device context and swap chain 
 	// using the information in the scd struct
@@ -175,8 +182,8 @@ void InitD3D( HWND hWnd )
 
 	viewport.TopLeftX = 0;
 	viewport.TopLeftY = 0;
-	viewport.Width = 800;
-	viewport.Height = 600;
+	viewport.Width = SCREEN_WIDTH;
+	viewport.Height = SCREEN_HEIGHT;
 
 	deviceContext->RSSetViewports( 1, &viewport );
 }
@@ -200,6 +207,8 @@ void RenderFrame( void )
 // This is the function that cleans up Direct3D and COM
 void CleanD3D()
 {
+	swapchain->SetFullscreenState( FALSE, NULL );	// switch to windowed mode
+
 	// Close and release all existing COM objects
 	swapchain->Release();
 	backbuffer->Release();
