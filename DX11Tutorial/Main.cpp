@@ -1,5 +1,18 @@
-// Include the basic windows header file.
+// Include the basic windows header file and the Direct3D header files
 #include <Windows.h>
+#include <d3d11.h>
+
+// Include the Direct3D Library file
+#pragma comment (lib, "d3d11.lib")
+
+// Global declarations
+IDXGISwapChain *swapchain;			// the pointer to the swap chain interface
+ID3D11Device *device;				// the pointer to our Direct3D device interface
+ID3D11DeviceContext *deviceContext;	// the pointer to our Direct3D device context
+
+// Function prototypes
+void InitD3D( HWND hWnd );	// sets up and initializes Direct3D
+void CleanD3D( void );		// closes Direct3D and releases memory
 
 // The WindowProc function prototype
 LRESULT CALLBACK WindowProc( HWND hWnd,
@@ -40,7 +53,7 @@ int WINAPI WinMain( HINSTANCE hInstance,
 	// Create the Window and use the result as the handle
 	hWnd = CreateWindowEx( NULL,
 		L"WindowClass1",				// Name of the window class
-		L"Our First Windowed Program",	// Title of the window
+		L"Our First Direct3D Program",	// Title of the window
 		WS_OVERLAPPEDWINDOW,			// Window style
 		300,							// x-position of the window
 		300,							// y-position of the window
@@ -53,6 +66,9 @@ int WINAPI WinMain( HINSTANCE hInstance,
 
 	// Display the window on the screen
 	ShowWindow( hWnd, nCmdShow );
+
+	// Set up and initialize Direct3D
+	InitD3D( hWnd );
 
 	// Enter the main loop:
 
@@ -83,6 +99,9 @@ int WINAPI WinMain( HINSTANCE hInstance,
 		}
 	}
 
+	// Clean up DirectX and COM
+	CleanD3D();
+
 	// Return this part of the WM_QUIT message to Windows
 	return msg.wParam;
 }
@@ -104,4 +123,46 @@ LRESULT CALLBACK WindowProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
 
 	// Handle any messages the switch statement didn't
 	return DefWindowProc( hWnd, message, wParam, lParam );
+}
+
+// This function initializes and prepares Direct3D for use
+void InitD3D( HWND hWnd )
+{
+	// Create a struct to hold information about the swap chain
+	DXGI_SWAP_CHAIN_DESC scd;
+
+	// Clear out the struct for use
+	ZeroMemory( &scd, sizeof( DXGI_SWAP_CHAIN_DESC ) );
+
+	// Fill the swap chain description struct
+	scd.BufferCount = 1;									// one back buffer
+	scd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;		// use 32-bit color
+	scd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;		// how swap chain is to be used
+	scd.OutputWindow = hWnd;								// the window to be used
+	scd.SampleDesc.Count = 4;								// how many multisamples
+	scd.Windowed = TRUE;									// windowed/full-screen mode
+
+	// Create a device, device context and swap chain 
+	// using the information in the scd struct
+	D3D11CreateDeviceAndSwapChain( NULL,
+		D3D_DRIVER_TYPE_HARDWARE,
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		D3D11_SDK_VERSION,
+		&scd,
+		&swapchain,
+		&device,
+		NULL,
+		&deviceContext );
+}
+
+// This is the function that cleans up Direct3D and COM
+void CleanD3D()
+{
+	// Close and release all existing COM objects
+	swapchain->Release();
+	device->Release();
+	deviceContext->Release();
 }
