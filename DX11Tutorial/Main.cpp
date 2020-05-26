@@ -9,9 +9,11 @@
 IDXGISwapChain *swapchain;			// the pointer to the swap chain interface
 ID3D11Device *device;				// the pointer to our Direct3D device interface
 ID3D11DeviceContext *deviceContext;	// the pointer to our Direct3D device context
+ID3D11RenderTargetView *backbuffer; // the pointer to an object that holds all the information about the render target
 
 // Function prototypes
 void InitD3D( HWND hWnd );	// sets up and initializes Direct3D
+void RenderFrame( void );	// Renders a single frame
 void CleanD3D( void );		// closes Direct3D and releases memory
 
 // The WindowProc function prototype
@@ -91,12 +93,9 @@ int WINAPI WinMain( HINSTANCE hInstance,
 			if (msg.message == WM_QUIT)
 				break;
 		}
-		else
-		{
-			// Run game code here
-			// ...
-			// ...
-		}
+		
+		// Run the game code here
+		RenderFrame();
 	}
 
 	// Clean up DirectX and COM
@@ -128,6 +127,7 @@ LRESULT CALLBACK WindowProc( HWND hWnd, UINT message, WPARAM wParam, LPARAM lPar
 // This function initializes and prepares Direct3D for use
 void InitD3D( HWND hWnd )
 {
+	// Direct3D initialization
 	// Create a struct to hold information about the swap chain
 	DXGI_SWAP_CHAIN_DESC scd;
 
@@ -156,6 +156,45 @@ void InitD3D( HWND hWnd )
 		&device,
 		NULL,
 		&deviceContext );
+
+	// Set the render target
+	// Get the address of the back buffer
+	ID3D11Texture2D *pBackBuffer;
+	swapchain->GetBuffer( 0, __uuidof(ID3D11Texture2D), (LPVOID *)&pBackBuffer );
+
+	// Use the back buffer address to create the render target
+	device->CreateRenderTargetView( pBackBuffer, NULL, &backbuffer );
+	pBackBuffer->Release();
+
+	// Set the render target as the back buffer
+	deviceContext->OMSetRenderTargets( 1, &backbuffer, NULL );
+
+	// Set the viewport
+	D3D11_VIEWPORT viewport;
+	ZeroMemory( &viewport, sizeof( D3D11_VIEWPORT ) );
+
+	viewport.TopLeftX = 0;
+	viewport.TopLeftY = 0;
+	viewport.Width = 800;
+	viewport.Height = 600;
+
+	deviceContext->RSSetViewports( 1, &viewport );
+}
+
+
+// This is the function used to render a single frame
+void RenderFrame( void )
+{
+	// Clear backbuffer to blue
+	float color[4] = { 0.0f, 0.2f, 0.4f, 1.0f };
+
+	// Clear the back buffer to blue
+	deviceContext->ClearRenderTargetView( backbuffer, color);
+
+	// Do 3D rendering on the back buffer here
+
+	// Switch the back buffer and the front buffer
+	swapchain->Present( 0, 0 );
 }
 
 // This is the function that cleans up Direct3D and COM
@@ -163,6 +202,7 @@ void CleanD3D()
 {
 	// Close and release all existing COM objects
 	swapchain->Release();
+	backbuffer->Release();
 	device->Release();
 	deviceContext->Release();
 }
