@@ -63,8 +63,8 @@ int WINAPI WinMain( HINSTANCE hInstance,
 		WS_OVERLAPPEDWINDOW,			// Window style
 		300,							// x-position of the window
 		300,							// y-position of the window
-		wr.right - wr.left,
-		wr.bottom - wr.top,					// height of the window
+		wr.right - wr.left,				// width of the window
+		wr.bottom - wr.top,				// height of the window
 		NULL,							// We have no parent window, NULL
 		NULL,							// We aren't using menus, NULL
 		hInstance,						// Application handle	
